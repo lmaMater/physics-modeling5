@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Моделирование амплитудной модуляции сигнала</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #202124;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+        }
+        .form-container {
+            width: 30%;
+            padding: 20px;
+            box-sizing: border-box;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        form {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        form label {
+            display: block;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        form input {
+            width: calc(100% - 10px);
+            padding: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background-color: #444;
+            color: #fff;
+        }
+        button {
+            width: calc(100% - 20px);
+            padding: 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.5s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .plots-container {
+            width: 65%;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        .plot {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="form-container">
+    <h1>Параметры амплитудной модуляции</h1>
+    <form id="paramsForm">
+        <label for="carrierFrequency">Частота несущего сигнала (Гц):</label>
+        <input type="number" step="0.01" min="0" id="carrierFrequency" value="0.5">
+        <br>
+        <label for="informationFrequency">Частота информационного сигнала (Гц):</label>
+        <input type="number" step="0.01" min="0" id="informationFrequency" value="10">
+        <br>
+        <label for="modulationIndex">Коэффициент модуляции:</label>
+        <input type="number" step="0.01" min="0" max="100" id="modulationIndex" value="0.5">
+        <br>
+        <button onclick="updatePlots()">Обновить (Enter)</button>
+        <button onclick="toggleMode()">Переключить режим</button>
+    </form>
+    <br>
+    <label for="timeRange">Время (с):</label>
+    <input type="range" min="1" max="100" value="10" step="1" id="timeRange" onchange="updateTimeRange(this.value)">
+    <output for="timeRange" id="timeRangeValue">10</output>
+</div>
+
+<div class="plots-container" id="plots-container">
+    <div class="plot" id="carrierPlot"></div>
+    <div class="plot" id="informationPlot"></div>
+    <div class="plot" id="modulatedPlot"></div>
+</div>
+
+<script>
+    let mode = 'multiple'; // Начальный режим построения графиков
+
+    function toggleMode() {
+        mode = mode === 'multiple' ? 'single' : 'multiple';
+        updatePlots();
+    }
+
+    function updatePlots(event) {
+        if (event) event.preventDefault();
+        
+        const carrierFrequency = parseFloat(document.getElementById("carrierFrequency").value);
+        const informationFrequency = parseFloat(document.getElementById("informationFrequency").value);
+        const modulationIndex = parseFloat(document.getElementById("modulationIndex").value);
+        const timeMax = parseFloat(document.getElementById("timeRange").value);
+
+        if (mode === 'multiple') {
+            document.getElementById("carrierPlot").style.display = 'block';
+            document.getElementById("informationPlot").style.display = 'block';
+            document.getElementById("modulatedPlot").style.display = 'block';
+            generateCarrierPlot(carrierFrequency, timeMax);
+            generateInformationPlot(informationFrequency, timeMax);
+            generateModulatedPlot(carrierFrequency, informationFrequency, modulationIndex, timeMax);
+        } else {
+            document.getElementById("carrierPlot").style.display = 'none';
+            document.getElementById("informationPlot").style.display = 'none';
+            document.getElementById("modulatedPlot").style.display = 'block';
+            generateCombinedPlot(carrierFrequency, informationFrequency, modulationIndex, timeMax);
+        }
+    }
+    
+    function updateTimeRange(value) {
+        document.getElementById("timeRangeValue").value = value;
+        updatePlots();
+    }
+    
+    function generateCarrierPlot(carrierFrequency, timeMax) {
+        const time = Array.from({length: timeMax * 1000}, (_, i) => i / 1000);
+        const carrierSignal = time.map(t => Math.sin(2 * Math.PI * carrierFrequency * t));
+        
+        const carrierPlot = {
+            x: time,
+            y: carrierSignal,
+            mode: 'lines',
+            name: 'Несущий сигнал',
+            line: {color: '#ffffff'}
+        };
+        
+        const layout = {
+            title: {
+                text: 'Несущий сигнал',
+                font: {
+                    color: '#fff'
+                }
+            },
+            xaxis: {
+                title: 'Время (с)',
+                color: '#fff'
+            },
+            yaxis: {
+                title: 'Амплитуда',
+                color: '#fff'
+            },
+            plot_bgcolor: '#333',
+            paper_bgcolor: '#333'
+        };
+        
+        Plotly.newPlot('carrierPlot', [carrierPlot], layout);
+    }
+    
+    function generateInformationPlot(informationFrequency, timeMax) {
+        const time = Array.from({length: timeMax * 1000}, (_, i) => i / 1000);
+        const informationSignal = time.map(t => Math.sin(2 * Math.PI * informationFrequency * t));
+        
+        const informationPlot = {
+            x: time,
+            y: informationSignal,
+            mode: 'lines',
+            name: 'Информационный сигнал',
+            line: {color: '#ffa500'}
+        };
+        
+        const layout = {
+            title: {
+                text: 'Информационный сигнал',
+                font: {
+                    color: '#fff'
+                }
+            },
+            xaxis: {
+                title: 'Время (с)',
+                color: '#fff'
+            },
+            yaxis: {
+                title: 'Амплитуда',
+                color: '#fff'
+            },
+            plot_bgcolor: '#333',
+            paper_bgcolor: '#333'
+        };
+        
+        Plotly.newPlot('informationPlot', [informationPlot], layout);
+    }
+    
+    function generateModulatedPlot(carrierFrequency, informationFrequency, modulationIndex, timeMax) {
+        const time = Array.from({length: timeMax * 1000}, (_, i) => i / 1000);
+        const carrierSignal = time.map(t => Math.sin(2 * Math.PI * carrierFrequency * t));
+        const informationSignal = time.map(t => Math.sin(2 * Math.PI * informationFrequency * t));
+        const modulatedSignal = time.map(t => (1 + modulationIndex * informationSignal[Math.floor(t * 1000)]) * carrierSignal[Math.floor(t * 1000)]);
+        
+        const modulatedPlot = {
+            x: time,
+            y: modulatedSignal,
+            mode: 'lines',
+            name: 'Модулированный сигнал',
+            line: {color: '#0000ff'}
+        };
+        
+        const layout = {
+            title: {
+                text: 'Модулированный сигнал',
+                font: {
+                    color: '#fff'
+                }
+            },
+            xaxis: {
+                title: 'Время (с)',
+                color: '#fff'
+            },
+            yaxis: {
+                title: 'Амплитуда',
+                color: '#fff'
+            },
+            plot_bgcolor: '#333',
+            paper_bgcolor: '#333'
+        };
+        
+        Plotly.newPlot('modulatedPlot', [modulatedPlot], layout);
+    }
+    
+    function generateCombinedPlot(carrierFrequency, informationFrequency, modulationIndex, timeMax) {
+        const time = Array.from({length: timeMax * 1000}, (_, i) => i / 1000);
+        const carrierSignal = time.map(t => Math.sin(2 * Math.PI * carrierFrequency * t));
+        const informationSignal = time.map(t => Math.sin(2 * Math.PI * informationFrequency * t));
+        const modulatedSignal = time.map(t => (1 + modulationIndex * informationSignal[Math.floor(t * 1000)]) * carrierSignal[Math.floor(t * 1000)]);
+        
+        const combinedPlot = [
+            {
+                x: time,
+                y: carrierSignal,
+                mode: 'lines',
+                name: 'Несущий сигнал',
+                line: {color: '#ffffff'}
+            },
+            {
+                x: time,
+                y: informationSignal,
+                mode: 'lines',
+                name: 'Информационный сигнал',
+                line: {color: '#ffa500'}
+            },
+            {
+                x: time,
+                y: modulatedSignal,
+                mode: 'lines',
+                name: 'Модулированный сигнал',
+                line: {color: '#0000ff'}
+            }
+        ];
+        
+        const layout = {
+            title: {
+                text: 'Комбинированный график',
+                font: {
+                    color: '#fff'
+                }
+            },
+            xaxis: {
+                title: 'Время (с)',
+                color: '#fff'
+            },
+            yaxis: {
+                title: 'Амплитуда',
+                color: '#fff'
+            },
+            plot_bgcolor: '#333',
+            paper_bgcolor: '#333'
+        };
+        
+        Plotly.newPlot('modulatedPlot', combinedPlot, layout);
+    }
+    
+    document.getElementById("paramsForm").addEventListener("submit", updatePlots);
+    
+    updatePlots();
+</script>
+
+</body>
+</html>
